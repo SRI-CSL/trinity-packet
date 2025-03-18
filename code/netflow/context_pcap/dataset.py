@@ -168,69 +168,6 @@ class ContextPCAPDataset(NetflowDataset):
 
             print ('  Created split {:03d} in {:0.2f} seconds.'.format(split_index, time.time() - start_time))
 
-    def construct_ports_table(data, column_label):
-        """
-        Construct a table with the results of our "one-hot encoding". Note that
-        it is not a true one-hot encoding since some values are duplicated. 
-        
-        @param data: the dataframe that contains port in and attack information
-        @param column_label: the column to consider ('src_port' or dest_port')
-        """
-        # these are the possible ports that we consider
-        # note that this is not a true one hot encoding since 
-        # some of the categories overlap
-        one_hot_encoding = {
-            '21': [21],
-            '22': [22],
-            '80/8080': [80, 8080],
-            '443/444': [443, 444],
-            'Well Known (0 - 1023)': list(range(0, 1024)),
-            'Registered (1024 - 49151)': list(range(1024, 49152)),
-            'Dynamic/Private (49152 - 65535)': list(range(49152, 65536)),
-        }
-        
-        # keep count of the number of benign and attack labels
-        one_hot_encoding_counts = {}
-        for label in one_hot_encoding.keys():
-            one_hot_encoding_counts[label] = [0, 0]
-        
-        # go through every port in the dataset
-        for port, data_by_port in data.groupby(column_label):
-            ninstances = len(data_by_port.index)
-            nattacks = data_by_port['packet_label'].sum()
-            nbenigns = ninstances - nattacks
-            
-            # get the relevant one hot encoding label
-            for label, ports in one_hot_encoding.items():
-                if not port in ports: continue 
-                
-                one_hot_encoding_counts[label][0] += nbenigns 
-                one_hot_encoding_counts[label][1] += nattacks
-
-        for label, (nbenigns, nattacks) in one_hot_encoding_counts.items():
-            print ('{} & {} & {} \\\\'.format(
-                label, 
-                nbenigns,
-                nattacks,
-            ))
-
-    def port_analysis(self):
-        """
-        Compute analysis on the possible ports for header context. 
-        """
-        # read the processed data
-        read_time = time.time()
-        data = self.read_processed_data()
-        print ('Read processed data in {:0.2f} seconds.'.format(time.time() - read_time))
-
-        src_ports = data[['src_port', 'packet_label']]
-        dest_ports = data[['dest_port', 'packet_label']]
-
-        print ('\\multicolumn{3}{c}{\\textbf{Source Port}} \\\\ \hline')
-        self.analyze_ports(src_ports, 'src_port')
-        print ('\\multicolumn{3}{c}{\\textbf{Destination Port}} \\\\ \hline')
-        self.analyze_ports(dest_ports, 'dest_port')
-
     def generate_unbalanced_chunks(self, nsplits = 10, nchunks = 100):
         """
         Generate many small chunks of the unbalanced (Benign heavy) data. 
