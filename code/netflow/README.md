@@ -1,6 +1,6 @@
 ## Context PCAP
 
-cnn.py: Descriminative CNN model for payload classification.
+cnn.py: Discriminative CNN model for payload classification.
 
 
 dataset.py: 
