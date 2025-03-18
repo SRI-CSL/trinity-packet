@@ -3,7 +3,6 @@ import sys
 import glob
 import time
 import pickle
-import seaborn
 import sklearn
 
 
@@ -11,11 +10,7 @@ import sklearn
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-# create a better style for matplotlib 
-plt.style.use('seaborn-dark')
 from sklearn.covariance import EmpiricalCovariance
-# MulticoreTSNE is significantly faster than sklearn.manifold.TSNE
-from MulticoreTSNE import MulticoreTSNE as TSNE
 from pytorch_ood.detector import EnergyBased, ODIN
 
 
@@ -260,32 +255,6 @@ class NetflowExperiment(object):
             target_mapping = pickle.load(fd)
 
         return target_mapping
-
-    def confusion_matrix(self, labels, predictions):
-        """
-        Plot the confusion matrix given these labels and predictions.
-
-        @param labels: the ground truth labels for this dataset
-        @param predictions: the predictions from the ML model
-        """
-        # get the confusion matrix 
-        matrix = sklearn.metrics.confusion_matrix(y_true = labels, y_pred = predictions)
- 
-        # normalize by row 
-        # need to add the new axis so that the sums is the same matrix size
-        matrix = matrix / np.sum(matrix, axis = 1)[:,np.newaxis]
-
-        target_mapping = self.read_target_mapping()
-        tick_labels = [key for key, _ in sorted(target_mapping.items(), key = lambda x: x[1])]
-
-        # plot the confusion matrix
-        plt.figure(figsize=(8, 6))
-        seaborn.heatmap(matrix, xticklabels = tick_labels, yticklabels = tick_labels)
-        plt.tight_layout()        
-
-        # save in the figures directory 
-        output_filename = '{}/confusion-matrix.png'.format(self.figures_directory)
-        plt.savefig(output_filename)
 
     def infer(self, examples, label, split = 'test', fd = sys.stdout, epoch = 'opt', balanced = False):
         """
@@ -1580,140 +1549,3 @@ class NetflowExperiment(object):
             ))
         # run on the optimal network 
         self.calculate_normalizing_flows(layer, 'opt', attribution_method, balanced)
-
-    def plot_ood_results(self, method, epoch = 'opt'):
-        """
-        Plot the OOD results in a two dimensional plot with the distance/score on the y-axis.
-
-        @param method: OOD method to plot (should include _stratify_ and _layer_ if applicable)
-        @param epoch: the epoch to run the experiment on (default = 'opt')
-        """
-        # get the categories for each of the samples 
-        ID_X_test = self.read_examples(self.ID_examples, 'test')
-        OOD_X_test = self.read_examples(self.OOD_examples, 'test')
-        # concatenate the data frames to get the categories 
-        X_test = pd.concat([ID_X_test, OOD_X_test])
-        X_test['colors'] = X_test['category'].map(self.color_mapping)
-
-        # save the distances 
-        ID_filename = '{}/ID_test-{}-{}.npy'.format(self.temp_directory, method, epoch)
-        ID_scores = np.load(ID_filename)
-        OOD_filename = '{}/OOD_test-{}-{}.npy'.format(self.temp_directory, method, epoch)
-        OOD_scores = np.load(OOD_filename)
-        # concatenate the scores together 
-        scores = np.concatenate([ID_scores, OOD_scores])
-
-        # randomize the order of the points 
-        nsamples = scores.shape[0]
-        idxs = np.random.permutation(nsamples)
-
-        # create the figure and axes 
-        fig = plt.figure(figsize = (18.2, 10.8))
-        ax = plt.subplot(111)
-
-        # plot the points with colors
-        categories = pd.unique(X_test['category'])
-        for category in categories:
-            ax.scatter(
-                idxs[X_test['category'] == category],
-                scores[X_test['category'] == category],
-                s = 6, 
-                c = self.color_mapping[category], 
-                label = category,
-            )
-
-        # get the TNR = 95% threshold 
-        true_negative_threshold = sorted(ID_scores)[19 * ID_scores.size // 20]
-        ax.axhline(
-            true_negative_threshold, 
-            color = 'red', 
-            linewidth = 2, 
-            linestyle = '--', 
-            label = 'TNR = 95%: {:0.4f}'.format(true_negative_threshold)
-        )
-
-        # Shrink current axis by 20%
-        box = ax.get_position()
-        ax.set_position([box.x0, box.y0, box.width * 0.875, box.height])
-
-        # add the axis labels and legend
-        ax.set_ylabel(method)
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        ax.get_xaxis().set_ticklabels([])
-
-        # save and close the figure
-        figures_filename = '{}/{}-results.png'.format(self.figures_directory, method)
-        plt.savefig(figures_filename)
-        plt.close()
-
-    def compute_tsne(self, layer):
-        """
-        Compute and save the TSNE dimension reduction for the feature space.
-
-        @param layer: the extracted layer to plot
-        """
-        # read the features from disk 
-        features = self.read_features('ID', layer, 'test')
-        if len(self.OOD_examples):
-            features = np.concatenate([features, self.read_features('OOD', layer, 'test')])
-        
-        # fit the TSNE distriubtion 
-        start_time = time.time()
-        tsne = TSNE(n_components = 2, n_jobs = 8, random_state = 0, verbose = 1)
-        X_2d = tsne.fit_transform(features)
-        print ('Fit t-SNE distribution in {:0.2f} seconds.'.format(time.time() - start_time))
-
-        # save the X_2d for later use
-        output_filename = '{}/TSNE-X_2d-{}.npy'.format(self.temp_directory, layer)
-        np.save(output_filename, X_2d)
-
-    def plot_tsne(self, stratify, layer):
-        """
-        Plot and save the TSNE dimension reduction for the feature space. 
-
-        @param stratify: data frame column to differentiate colors
-        @param layer: the extracted layer to plot
-        """
-        # read the corresponding "X" values
-        X = self.read_examples(self.ID_examples, 'test')
-        if len(self.OOD_examples):
-            X = pd.concat([X, self.read_examples(self.OOD_examples, 'test')])
-
-        # get the categories that we will plot 
-        categories = sorted(pd.unique(X[stratify]))
-
-        # read the reduced dimension TSNE results
-        tsne_filename = '{}/TSNE-X_2d-{}.npy'.format(self.temp_directory, layer)
-        X_2d = np.load(tsne_filename)
-        
-        plt.figure(figsize = (8, 6))
-
-        colors = [
-            'blueviolet',
-            'darkolivegreen',
-            'salmon',
-            'chocolate',
-            'darkorange',
-            'deepskyblue',
-            'palegreen',
-            'aqua',
-            'steelblue',
-            'midnightblue',
-            'crimson',
-            'slategray',
-            'yellow',
-            'red',
-            'green',
-        ]
-
-        # plot each category in a unique color        
-        for index, category in enumerate(categories):
-            plt.scatter(X_2d[X[stratify] == category,0], X_2d[X[stratify] == category,1], label=category, color = colors[index])
-        
-        plt.legend(bbox_to_anchor = (1.0, 1.0))
-        plt.title('{} {}'.format(self.prefix.replace('-', ' '), stratify))
-        
-        plt.tight_layout()
-
-        output_filename = '{}/TSNE-{}-{}.png'.format(self.figures_directory, stratify, layer)
-        plt.savefig(output_filename)
