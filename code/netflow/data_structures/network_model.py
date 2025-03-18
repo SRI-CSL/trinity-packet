@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim 
 from torch.utils.data import DataLoader
-from captum.attr import LayerIntegratedGradients, LayerGradientXActivation
 
 
 
@@ -326,78 +325,3 @@ class NetworkModel(object):
         """
         # call inference with the layer which returns extracted features
         return self.infer(X_test, layer)
-
-    def extract_attributions(self, X_test, layer, method):
-        """
-        Extract attributes from the selected layer.
-
-        @param X: the dataset to extract attributes from 
-        @param layer: the layer of the network to extract 
-        @param method: the method of attribution to use 
-        """
-        # set model to evaluation mode 
-        self.model.eval()
-
-        # make sure the layer is valid 
-        assert (layer in self.model.extractable_layers)
-
-        # create a new testing dataset 
-        testing_data = self.dataset(
-            X_test, 
-            self.header_length,
-            self.payload_length, 
-            self.output_shape,
-            to_fit = False,
-            cnn = self.model.cnn,
-            vocab = self.model.vocab,
-        )
-        
-        # use the largest batch size that fits in memory 
-        if self.model.cnn or self.model.vocab: BATCH_SIZE = 64
-        else: BATCH_SIZE = 4096
-
-        # create a dataloader for the dataset
-        testing_dataloader = DataLoader(
-                                testing_data, 
-                                batch_size = BATCH_SIZE, 
-                                shuffle = False, 
-                                num_workers = 1
-                            )
-        
-        if method == 'attributions_LIG': 
-            attribution_method = LayerIntegratedGradients
-        elif method == 'attributions_LGXA':
-            attribution_method = LayerGradientXActivation
-        else:
-            assert ('Unrecognized method: {}'.format(method))
-
-        # create the captum object that extracts features 
-        attribution_fn = attribution_method(
-            self.model,
-            self.model.extractable_layers[layer],
-        )
-
-        # create a list of attributions 
-        attributions = []
-
-        # get the total number of targets and make sure it is one (binary classification) 
-        ntargets = self.output_shape
-        assert (ntargets == 1)
-
-        # get the inputs from the dataloader, targets will be given
-        for inputs, _ in testing_dataloader:
-            # load the inputs to the proper device 
-            inputs = inputs.to(self.device)
-
-            # call the integrated gradient function 
-            outputs = attribution_fn.attribute(
-                inputs, 
-                # set target = 0 since there is only one output neuron
-                target = 0, 
-            )
-            
-            # add these outputs to this list of attributions
-            attributions.append(outputs.detach().cpu().numpy().astype(np.float32))
-
-        # return the dictionary of attribution values 
-        return np.concatenate(attributions)
