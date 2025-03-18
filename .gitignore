@@ -160,7 +160,7 @@ cython_debug/
 #.idea/
 
 # folders generated during code execution
-SAFE-NID/processed_data
-SAFE-NID/models
-SAFE-NID/results
-SAFE-NID/temp
+SAFE-NID/processed_data/
+SAFE-NID/models/
+SAFE-NID/results/
+SAFE-NID/temp/
