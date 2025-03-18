@@ -1,0 +1,41 @@
+# prefix
+CIC-IDS-2017
+# raw datasets
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/PCAPs/Monday-WorkingHours.pcap PCAPNG
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/PCAPs/Tuesday-WorkingHours.pcap PCAPNG
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/PCAPs/Wednesday-WorkingHours.pcap PCAPNG
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/PCAPs/Thursday-WorkingHours.pcap PCAPNG
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/PCAPs/Friday-WorkingHours.pcap PCAPNG
+# flow datasets
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/TrafficLabeling/Monday-WorkingHours.pcap_ISCX.csv
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/TrafficLabeling/Tuesday-WorkingHours.pcap_ISCX.csv
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/TrafficLabeling/Wednesday-WorkingHours.pcap_ISCX.csv
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/TrafficLabeling/Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/TrafficLabeling/Thursday-WorkingHours-Afternoon-Infiltration.pcap_ISCX.csv
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/TrafficLabeling/Friday-WorkingHours-Morning.pcap_ISCX.csv
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/TrafficLabeling/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv
+~/trinity-packet/SAFE-NID/raw_data/CIC-IDS-2017/TrafficLabeling/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv
+# flow preprocessor
+CIC-IDS
+# processed datasets
+~/trinity-packet/SAFE-NID/processed_data/CIC-IDS-2017/Monday-WorkingHours.pkl.gz
+~/trinity-packet/SAFE-NID/processed_data/CIC-IDS-2017/Tuesday-WorkingHours.pkl.gz
+~/trinity-packet/SAFE-NID/processed_data/CIC-IDS-2017/Wednesday-WorkingHours.pkl.gz
+~/trinity-packet/SAFE-NID/processed_data/CIC-IDS-2017/Thursday-WorkingHours.pkl.gz
+~/trinity-packet/SAFE-NID/processed_data/CIC-IDS-2017/Friday-WorkingHours.pkl.gz
+# category mapping
+BENIGN: Benign
+Bot: Bot
+DDoS: DDoS
+DoS GoldenEye: DoSGoldenEye
+DoS Hulk: DoSHulk
+DoS Slowhttptest: DoSSlowhttptest
+DoS slowloris: DoSSlowloris
+FTP-Patator: FTP-Patator
+Heartbleed: Heartbleed
+Infiltration: Infiltration
+PortScan: PortScan
+SSH-Patator: SSH-Patator
+Web Attack – Brute Force: WebAttack-BruteForce
+Web Attack – Sql Injection: WebAttack-SQLInjection
+Web Attack – XSS: WebAttack-XSS
