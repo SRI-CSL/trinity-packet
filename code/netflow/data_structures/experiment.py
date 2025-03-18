@@ -402,25 +402,6 @@ class NetflowExperiment(object):
         # close the open file
         fd.close()
 
-    def run_exhaustive_inference(self, balanced = False):
-        """
-        Run all inference for this experiment for all epochs. 
-
-        @param balanced: only use balanced benign data (default = False)
-        """
-        for epoch in range(self.nepochs):
-            start_time = time.time()
-            # convert epoch into a formatted string and run inference 
-            self.run_inference('{:03d}'.format(epoch), balanced)
-
-            print ('Epoch {}/{} - time {:0.2f}s'.format(
-                epoch + 1, 
-                self.nepochs,
-                time.time() - start_time,
-            ))
-        # run on the optimal network 
-        self.run_inference('opt', balanced)
-
     def extract_features(self, examples, label, split, layer, epoch = 'opt', balanced = False):
         """
         Extract features from an intermediate layer.
@@ -495,85 +476,6 @@ class NetflowExperiment(object):
         self.extract_features(self.ID_examples, 'ID', 'test', layer, epoch, balanced)
         if len(self.OOD_examples):
             self.extract_features(self.OOD_examples, 'OOD', 'test', layer, epoch, balanced)
-
-    def run_exhaustive_feature_extraction(self, layer, balanced = False):
-        """
-        Run all feature extraction for this experiment for all epochs. 
-
-        @param layer: the layer of the network to extract
-        @param balanced: only use balanced benign data (default = False)
-        """
-        for epoch in range(self.nepochs):
-            start_time = time.time()
-            # convert epoch into a formatted string and run inference 
-            self.run_feature_extraction(layer, '{:03d}'.format(epoch), balanced)
-
-            print ('Epoch {}/{} - time {:0.2f}s'.format(
-                epoch + 1, 
-                self.nepochs,
-                time.time() - start_time,
-            ))
-        # run on the optimal network 
-        self.run_feature_extraction(layer, 'opt', balanced)
-
-    def extract_feature_attributions(self, examples, label, split, layer, method, epoch = 'opt'):
-        """
-        Extract attributions features from an intermediate layer.
-
-        @param examples: the list of example datasets
-        @param label: signifier of this set of examples (e.g., ID or OOD)
-        @param split: the split of the data (default = 'test') 
-        @param layer: the layer of the network to extract
-        @param method: the attribution method to perform (str)
-        @param epoch: the epoch to run inference on (default = 'opt')
-        """
-        # skip if no examples 
-        if not len(examples): return
-
-        # read the feature vector and extract the intermediate features 
-        X = self.read_examples(examples, split)
-        attributions = self.model.extract_attributions(X, layer, method)
-        # save the features to the temp directory for later use
-        attribution_filename = '{}/{}_{}-{}_{}-{}.npy'.format(self.temp_directory, label, split, method, layer, epoch)
-        np.save(attribution_filename, attributions)
-        
-    def run_feature_attribution_extraction(self, layer, method, epoch = 'opt'):
-        """
-        Extract the feature attributes using integrated gradients from the captum 
-        library. 
-
-        @param layer: the layer of the network to extract attributes
-        @param method: the attribution method to perform (str)
-        @param epoch: the epoch to run the experiment on (default = 'opt')
-        """
-        # compile the model and load model weights 
-        self.compile_model()
-        self.load_weights(epoch)
-
-        # extract attribute features from the intermediate layer 
-        self.extract_feature_attributions(self.ID_examples, 'ID', 'train', layer, method, epoch)
-        self.extract_feature_attributions(self.ID_examples, 'ID', 'test', layer, method, epoch)
-        self.extract_feature_attributions(self.OOD_examples, 'OOD', 'test', layer, method, epoch)
-
-    def run_exhaustive_feature_attribution_extraction(self, layer, method):
-        """
-        Run all attribution extraction for this experiment for all epochs. 
-
-        @param layer: the layer of the network to extract
-        @param method: the attribution method to perform (str)
-        """
-        for epoch in range(self.nepochs):
-            start_time = time.time()
-            # convert epoch into a formatted string and run inference 
-            self.run_feature_attribution_extraction(layer, method, '{:03d}'.format(epoch))
-
-            print ('Epoch {}/{} - time {:0.2f}s'.format(
-                epoch + 1, 
-                self.nepochs,
-                time.time() - start_time,
-            ))
-        # run on the optimal network 
-        self.run_feature_attribution_extraction(layer, method, 'opt')
 
     def ood_infer(self, detector, examples, label, split = 'test', epoch = 'opt', balanced = False):
         """
@@ -738,26 +640,6 @@ class NetflowExperiment(object):
             fd.write('TPR (TNR = 85%): {:0.8f}%\n'.format(100 * true_positive_rate_85))
             fd.write('AUC: {:0.8f}\n'.format(roc_auc_score))
 
-    def run_exhaustive_ood_inference(self, detector, balanced = False):
-        """
-        Run inference using an OOD detector for this experiment for all epochs. 
-
-        @param detector: the OOD detector to run the tests for
-        @param balanced: only use balanced benign data (default = False)
-        """
-        for epoch in range(self.nepochs):
-            start_time = time.time()
-            # convert epoch into a formatted string and run inference 
-            self.run_inference('{:03d}'.format(epoch), balanced)
-
-            print ('Epoch {}/{} - time {:0.2f}s'.format(
-                epoch + 1, 
-                self.nepochs,
-                time.time() - start_time,
-            ))
-        # run on the optimal network 
-        self.run_ood_inference(detector, 'opt', balanced)
-
     def read_outputs(self, label, split = 'test', epoch = 'opt', balanced = True):
         """
         Read the outputs for the neural network.
@@ -837,22 +719,6 @@ class NetflowExperiment(object):
 
         return features
 
-    def read_feature_attributions(self, label, method, layer, split = 'test', epoch = 'opt'):
-        """
-        Read the feature attributions from an intermediate layer. 
-
-        @param label: signifier of this set of examples (e.g., ID or OOD)
-        @param method: the attribution method to perform (str)
-        @param layer: the extracted layer to read 
-        @param split: the split of the data (default = 'test')
-        @param epoch: the epoch to run the experiment on (default = 'opt') 
-        """
-        filename = '{}/{}_{}-attributions_{}_{}-{}.npy'.format(self.temp_directory, label, split, method, layer, epoch)
-        assert (os.path.exists(filename))
-        attributions = np.load(filename)
-
-        return attributions
-
     def read_mahalanobis_distances(self, label, layer, split = 'test', epoch = 'opt', stratify = 'target', balanced = True):
         """
         Read the mahalanobis distances from the extracted intermediate layer. 
@@ -887,52 +753,6 @@ class NetflowExperiment(object):
         losses = np.load(filename)
 
         return losses
-
-    def stack_features(self, label, split = 'test', epoch = 'opt'):
-        """
-        Stack the features and save the augmented feature space. 
-
-        @param label: signifier of this set of examples (e.g., ID or OOD)
-        @param split: the split of the data (default = 'test')
-        @param epoch: the epoch to stack features (default = 'opt')
-        """
-        # create an empty set of features and return concatenated version 
-        features = []
-
-        for layer in self.model.model.extractable_layers:
-            features.append(self.read_features(label, layer, split, epoch))
-
-        features = np.concatenate(features, axis = 1)
-
-        # save the features to disk 
-        feature_filename = '{}/{}_{}-features_stacked-{}.npy'.format(self.temp_directory, label, split, epoch)
-        np.save(feature_filename, features)
-
-    def stack_feature_layers(self, epoch = 'opt'):
-        """
-        Stack the extracted features together. 
-
-        @param epoch: the epoch to stack features (default = 'opt')
-        """
-        # compile the model 
-        self.compile_model()
-
-        self.stack_features('ID', 'train', epoch)
-        self.stack_features('ID', 'test', epoch)
-        self.stack_features('OOD', 'test', epoch)
-
-    def apply_feature_attributions(self, features, attributions):
-        """
-        Apply the feature attributions to the features themselves. 
-
-        @param features: the features extracted from an intermediate layer
-        @param attributions: the extracted feature attributions from an intermediate layer (default = None)
-        """
-        attributions = np.abs(attributions)
-        
-        attributions = sklearn.preprocessing.normalize(attributions, norm = 'l2', axis = 1)
-
-        return np.multiply(features, attributions)
 
     def recall(self, label, epoch = 'opt'):
         """
@@ -1030,25 +850,6 @@ class NetflowExperiment(object):
             fd.write('TPR (TNR = 85%): {:0.8f}%\n'.format(100 * true_positive_rate_85))
             fd.write('AUC: {:0.8f}\n'.format(roc_auc_score)) 
 
-    def compute_exhaustive_maximum_softmax_probability(self, balanced = False):
-        """
-        Run all MSP for this experiment for all epochs. 
-
-        @param balanced: only use balanced benign data (default = False)
-        """
-        for epoch in range(self.nepochs):
-            start_time = time.time()
-            # convert epoch into a formatted string and run inference 
-            self.maximum_softmax_probability('{:03d}'.format(epoch), balanced)
-
-            print ('Epoch {}/{} - time {:0.2f}s'.format(
-                epoch + 1, 
-                self.nepochs,
-                time.time() - start_time,
-            ))
-        # run on the optimal network 
-        self.maximum_softmax_probability('opt', balanced)
-
     def compute_robust_covariance_matrix(self, layer, epoch = 'opt', stratify = 'target', attribution_method = ''):
         """
         Compute the robust covariance matrix for each class (benign/attack).
@@ -1101,27 +902,6 @@ class NetflowExperiment(object):
                 pickle.dump(min_distance, fd, pickle.HIGHEST_PROTOCOL)
                 pickle.dump(max_distance, fd, pickle.HIGHEST_PROTOCOL)
     
-    def compute_exhaustive_robust_covariance_matrix(self, layer, stratify = 'target', attribution_method = ''):
-        """
-        Run all covariance computations for this experiment for all epochs. 
-
-        @param layer: the extracted layer to read 
-        @param stratify: the column to compute covariance matrices (default = 'target')
-        @param attribution_method: include feature attributes (default = '', i.e., None)
-        """
-        for epoch in range(self.nepochs):
-            start_time = time.time()
-            # convert epoch into a formatted string and run inference 
-            self.compute_robust_covariance_matrix(layer, '{:03d}'.format(epoch), stratify, attribution_method)
-
-            print ('Epoch {}/{} - time {:0.2f}s'.format(
-                epoch + 1, 
-                self.nepochs,
-                time.time() - start_time,
-            ))
-        # run on the optimal network 
-        self.compute_robust_covariance_matrix(layer, 'opt', stratify, attribution_method)
-
     def mahalanobis_distance(self, predictions, features, layer, epoch = 'opt', stratify = 'target', attributions = None, attribution_method = ''):
         """
         Find the distance to the target labels for each feature.
@@ -1269,28 +1049,6 @@ class NetflowExperiment(object):
             fd.write('TPR (TNR = 85%): {:0.8f}%\n'.format(100 * true_positive_rate_85))
             fd.write('AUC: {:0.8f}\n'.format(roc_auc_score)) 
 
-    def compute_exhaustive_mahalanobis_distance(self, layer, stratify = 'target', attribution_method = '', balanced = False):
-        """
-        Run all mahalanobis computations for this experiment for all epochs. 
-
-        @param layer: the extracted layer to read 
-        @param stratify: the column to compute covariance matrices (default = 'target')
-        @param attribution_method: include feature attributes (default = '', i.e., None)
-        @param balanced: only use balanced benign data (default = False)
-        """
-        for epoch in range(self.nepochs):
-            start_time = time.time()
-            # convert epoch into a formatted string and run inference 
-            self.compute_mahalanobis_distance(layer, '{:03d}'.format(epoch), stratify, attribution_method, balanced)
-
-            print ('Epoch {}/{} - time {:0.2f}s'.format(
-                epoch + 1, 
-                self.nepochs,
-                time.time() - start_time,
-            ))
-        # run on the optimal network 
-        self.compute_mahalanobis_distance(layer, 'opt', stratify, attribution_method, balanced)
-
     def train_normalizing_flows(self, layer, stratify = 'packet_category', epoch = 'opt', attribution_method = '', nblocks = 20, affine_clamping = 2.0):
         """
         Train a normalizing flow for each class (benign/attack).
@@ -1363,26 +1121,6 @@ class NetflowExperiment(object):
         
         # close the figures so that any future runs will not append to the same canvas 
         plt.close()
-
-    def train_exhaustive_normalizing_flows(self, layer, attribution_method = ''):
-        """
-        Train all normalizing flows for this experiment for all epochs. 
-
-        @param layer: the extracted layer to read 
-        @param attribution_method: include feature attributes (default = '', i.e., None)
-        """
-        for epoch in range(self.nepochs):
-            start_time = time.time()
-            # convert epoch into a formatted string and run inference 
-            self.train_normalizing_flows(layer, '{:03d}'.format(epoch), attribution_method = attribution_method)
-
-            print ('Epoch {}/{} - time {:0.2f}s'.format(
-                epoch + 1, 
-                self.nepochs,
-                time.time() - start_time,
-            ))
-        # run on the optimal network 
-        self.train_normalizing_flows(layer, 'opt', attribution_method = attribution_method)
 
     def normalizing_flow(self, predictions, features, layer, epoch = 'opt', attributions = None, attribution_method = '', nblocks = 20, affine_clamping = 2.0):
         """
@@ -1528,24 +1266,3 @@ class NetflowExperiment(object):
             fd.write('TPR (TNR = 95%): {:0.8f}%\n'.format(100 * true_positive_rate))
             fd.write('TPR (TNR = 85%): {:0.8f}%\n'.format(100 * true_positive_rate_85))
             fd.write('AUC: {:0.8f}\n'.format(roc_auc_score))
-
-    def calculate_exhaustive_normalizing_flows(self, layer, attribution_method = '', balanced = False):
-        """
-        Run all normalizing flows for this experiment for all epochs. 
-
-        @param layer: the extracted layer to read 
-        @param attribution_method: include feature attributes (default = '', i.e., None)
-        @param balanced: only use balanced benign data (default = False)
-        """
-        for epoch in range(self.nepochs):
-            start_time = time.time()
-            # convert epoch into a formatted string and run inference 
-            self.calculate_normalizing_flows(layer, '{:03d}'.format(epoch), attribution_method, balanced)
-
-            print ('Epoch {}/{} - time {:0.2f}s'.format(
-                epoch + 1, 
-                self.nepochs,
-                time.time() - start_time,
-            ))
-        # run on the optimal network 
-        self.calculate_normalizing_flows(layer, 'opt', attribution_method, balanced)
