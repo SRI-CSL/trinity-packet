@@ -30,24 +30,6 @@ class ContextPCAPExperiment(NetflowExperiment):
 
         self.payload_length = int(self.attributes['payload'][0])
 
-        self.color_mapping = {
-            'Benign': 'blueviolet',
-            'Bot': 'orange',
-            'DDoS': 'darkolivegreen',
-            'DoSGoldenEye': 'salmon',
-            'DoSHulk': 'chocolate',
-            'DoSSlowhttptest': 'darkorange',
-            'DoSslowloris': 'deepskyblue',
-            'FTP-Patator': 'palegreen',
-            'Heartbleed': 'aqua',
-            'Infiltration': 'steelblue',
-            'PortScan': 'midnightblue',
-            'SSH-Patator': 'crimson',
-            'WebAttack-BruteForce': 'slategray',
-            'WebAttack-SQLInjection': 'purple',
-            'WebAttack-XSS': 'yellow',
-        }
-
         # temporary fail safe for change in input 
         assert (self.payload_length == 1500)
 
