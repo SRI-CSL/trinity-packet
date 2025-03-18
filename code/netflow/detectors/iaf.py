@@ -60,7 +60,15 @@ def subnet_fc(dims_in, dims_out):
     )
 
 class InverseAutoregressiveFlow(object):
-    def __init__(self, input_shape, gpu = 4):
+    def __init__(self, input_shape, gpu = 4, nblocks = 20, affine_clamping = 2.0):
+        """
+        Initialize an Inverse Autoregressive flow for the model safeguard.
+
+        @param input_shape: the dimensionality of the feature vector 
+        @parma gpu: the gpu to run the experiment on (default = 4)
+        @param nblocks: the number of blocks in the flow (default = 20)
+        @param affine_clamping: the clamping parameter (default = 2.0)
+        """
         self.input_shape = input_shape 
         # get the device 
         self.gpu = gpu
@@ -72,13 +80,13 @@ class InverseAutoregressiveFlow(object):
         )
         
         # add learnable blocks 
-        nblocks = 20
+        nblocks = nblocks
         for _ in range(nblocks):
             self.model.append(
                 Fm.AllInOneBlock,
                 subnet_constructor = subnet_fc, 
                 permute_soft = True,
-                affine_clamping = 2.0,
+                affine_clamping = affine_clamping,
                 reverse_permutation = True,
             )
 
@@ -100,6 +108,8 @@ class InverseAutoregressiveFlow(object):
         @param loss_filename: path to save training losses 
         @param label: which category (attack or benign)
         """
+        print ('Training {}'.format(model_filename))
+        
         # create a deterministic validation set from the training data
         X_train, X_val = train_test_split(
             X_train['features'], 

@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim 
 from torch.utils.data import DataLoader
+from captum.attr import LayerIntegratedGradients, LayerGradientXActivation
 
 
 
@@ -258,7 +259,7 @@ class NetworkModel(object):
         # create a list of features (probabilities if extract = None) 
         features = []
 
-        # get the inputs seprately
+        # get the inputs separately
         for inputs, _ in testing_dataloader:
             # load the inputs to the device
             inputs = inputs.to(self.device)
@@ -275,6 +276,47 @@ class NetworkModel(object):
         # convention and backwards compatability
         return np.concatenate(features)
 
+    def ood_infer(self, X_test, detector):
+        """
+        Run an OOD test on this dataset. Requires running model again so needs to be in NetworkModel.
+
+        @param X_test: the dataset to run inference on
+        @param detector: the OOD detector to run the tests for
+        """
+        # set model to evaluation mode 
+        self.model.eval()
+
+        # create a new testing dataset 
+        testing_data = self.dataset(
+            X_test, 
+            self.header_length,
+            self.payload_length,
+            self.output_shape,
+            to_fit = False,
+            cnn = self.model.cnn,
+            vocab = self.model.vocab,
+        )
+        
+        # create a dataloader for the dataset
+        testing_dataloader = DataLoader(
+                                testing_data, 
+                                batch_size = self.model.batch_size, 
+                                shuffle = False, 
+                                num_workers = 1
+                            )
+        
+        ood_scores = []
+        # get the inputs separately 
+        for inputs, _ in testing_dataloader:
+            # load the inputs to the device
+            inputs = inputs.to(self.device)
+            with torch.enable_grad():
+                scores = detector(inputs)
+            ood_scores.extend(scores.detach().cpu().numpy())
+
+        # return the OOD scores
+        return ood_scores
+
     def extract_features(self, X_test, layer):
         """
         Return weights on inference at intermediate layer.
@@ -284,3 +326,78 @@ class NetworkModel(object):
         """
         # call inference with the layer which returns extracted features
         return self.infer(X_test, layer)
+
+    def extract_attributions(self, X_test, layer, method):
+        """
+        Extract attributes from the selected layer.
+
+        @param X: the dataset to extract attributes from 
+        @param layer: the layer of the network to extract 
+        @param method: the method of attribution to use 
+        """
+        # set model to evaluation mode 
+        self.model.eval()
+
+        # make sure the layer is valid 
+        assert (layer in self.model.extractable_layers)
+
+        # create a new testing dataset 
+        testing_data = self.dataset(
+            X_test, 
+            self.header_length,
+            self.payload_length, 
+            self.output_shape,
+            to_fit = False,
+            cnn = self.model.cnn,
+            vocab = self.model.vocab,
+        )
+        
+        # use the largest batch size that fits in memory 
+        if self.model.cnn or self.model.vocab: BATCH_SIZE = 64
+        else: BATCH_SIZE = 4096
+
+        # create a dataloader for the dataset
+        testing_dataloader = DataLoader(
+                                testing_data, 
+                                batch_size = BATCH_SIZE, 
+                                shuffle = False, 
+                                num_workers = 1
+                            )
+        
+        if method == 'attributions_LIG': 
+            attribution_method = LayerIntegratedGradients
+        elif method == 'attributions_LGXA':
+            attribution_method = LayerGradientXActivation
+        else:
+            assert ('Unrecognized method: {}'.format(method))
+
+        # create the captum object that extracts features 
+        attribution_fn = attribution_method(
+            self.model,
+            self.model.extractable_layers[layer],
+        )
+
+        # create a list of attributions 
+        attributions = []
+
+        # get the total number of targets and make sure it is one (binary classification) 
+        ntargets = self.output_shape
+        assert (ntargets == 1)
+
+        # get the inputs from the dataloader, targets will be given
+        for inputs, _ in testing_dataloader:
+            # load the inputs to the proper device 
+            inputs = inputs.to(self.device)
+
+            # call the integrated gradient function 
+            outputs = attribution_fn.attribute(
+                inputs, 
+                # set target = 0 since there is only one output neuron
+                target = 0, 
+            )
+            
+            # add these outputs to this list of attributions
+            attributions.append(outputs.detach().cpu().numpy().astype(np.float32))
+
+        # return the dictionary of attribution values 
+        return np.concatenate(attributions)

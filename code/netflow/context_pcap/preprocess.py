@@ -22,7 +22,7 @@ def cic_ids_time_parser(str_time):
     Time parser specific to the CIC-IDS-2017 dataset. Different datasets require different parsing 
     functions based on the time format. For the CIC-IDS-2017 dataset, attack times are given 
     in the New Brunswick timezone GMT-3 during the summer months. AM/PM are not given but since 
-    all traffic occurs between 9am and 5pm, we had 12 to afternoon hours.
+    all traffic occurs between 9am and 5pm, we add 12 to afternoon hours.
 
     @param str_time: the string representation of the time. 
     """
