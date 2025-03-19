@@ -850,41 +850,25 @@ class NetflowExperiment(object):
             fd.write('TPR (TNR = 85%): {:0.8f}%\n'.format(100 * true_positive_rate_85))
             fd.write('AUC: {:0.8f}\n'.format(roc_auc_score)) 
 
-    def compute_robust_covariance_matrix(self, layer, epoch = 'opt', stratify = 'target', attribution_method = ''):
+    def compute_robust_covariance_matrix(self, layer, epoch = 'opt', stratify = 'target'):
         """
         Compute the robust covariance matrix for each class (benign/attack).
 
         @param layer: the extracted layer to read 
         @param epoch: the epoch to run the experiment on (default = 'opt')
         @param stratify: the column to compute covariance matrices (default = 'target')
-        @param attribution_method: include feature attributes (default = '', i.e., None)
         """
         # read the training dataset
         X_train = self.read_examples(self.ID_examples, 'train')
         
         # get the training features from disk
         features = self.read_features('ID', layer, 'train', epoch)
-
-        # read attribution if requested 
-        if len(attribution_method):
-            attributions = self.read_feature_attributions('ID', attribution_method, layer, 'train', epoch)
-            # add underscore to follow correct naming conventions
-            attribution_method = '_{}'.format(attribution_method)
         
         # compute covariance for each label 
         categories = pd.unique(X_train[stratify])
         for category in categories:
             # extract only the features for this label
             category_features = features[X_train[stratify] == category]
-            
-            # if attribution is requested multiply the category_features by the relevant attribute values 
-            if len(attribution_method):
-                # get the attributions corresponding to this category and only select the rows where the training
-                # target equals the category in question. Perform element-wise multiplication
-                category_features = self.apply_feature_attributions(
-                    category_features,
-                    attributions[X_train[stratify] == category],
-                )
                 
             # compute robust convariance matrix
             robust_covariance = EmpiricalCovariance().fit(category_features)
@@ -895,14 +879,14 @@ class NetflowExperiment(object):
             min_distance = min(distance_from_covariance)
 
             # save the column that was used for computing this covariance matrix
-            covariance_filename = '{}/covariance{}_{}_{}-{}-{}.pickle'.format(self.temp_directory, attribution_method, stratify, layer, category, epoch)
+            covariance_filename = '{}/covariance_{}_{}-{}-{}.pickle'.format(self.temp_directory, stratify, layer, category, epoch)
             with open(covariance_filename, 'wb') as fd:
                 # pickle the data using highest protocol available
                 pickle.dump(robust_covariance, fd, pickle.HIGHEST_PROTOCOL)
                 pickle.dump(min_distance, fd, pickle.HIGHEST_PROTOCOL)
                 pickle.dump(max_distance, fd, pickle.HIGHEST_PROTOCOL)
     
-    def mahalanobis_distance(self, predictions, features, layer, epoch = 'opt', stratify = 'target', attributions = None, attribution_method = ''):
+    def mahalanobis_distance(self, predictions, features, layer, epoch = 'opt', stratify = 'target'):
         """
         Find the distance to the target labels for each feature.
 
@@ -911,21 +895,16 @@ class NetflowExperiment(object):
         @param layer: the extracted layer to read 
         @param epoch: the epoch to run the experiment on (default = 'opt')
         @param stratify: the column to compute covariance matrices (default = 'target')
-        @param attributions: the extracted feature attributions from an intermediate layer (default = None)
-        @param attribution_method: include feature attributes (default = '', i.e., None)
         """
         # read the training dataset to get the target labels
         X_train = self.read_examples(self.ID_examples, 'train')
-      
-        # set the attribution boolean based on the input
-        attribution = (attributions is not None)
 
         # read the covariance matricies 
         robust_covariances = {}
         max_distances = {}
         min_distances = {}
         for category in pd.unique(X_train[stratify]):
-            covariance_filename = '{}/covariance{}_{}_{}-{}-{}.pickle'.format(self.temp_directory, attribution_method, stratify, layer, category, epoch)
+            covariance_filename = '{}/covariance_{}_{}-{}-{}.pickle'.format(self.temp_directory, stratify, layer, category, epoch)
             with open(covariance_filename, 'rb') as fd:
                 # read the pickled data
                 robust_covariances[category] = pickle.load(fd)
@@ -946,13 +925,8 @@ class NetflowExperiment(object):
                 assert (len(labels) == 1)
                 label = labels[0]
 
-                # get the attributions corresponding to this category and only select the rows where the training
-                # target equals the category in question. Perform element-wise multiplication
-                if attribution: category_features = self.apply_feature_attributions(features, attributions)
-                else: category_features = features
-
                 # get the distances for all examples 
-                distances_from_category = (robust_covariances[category].mahalanobis(category_features) - min_distances[category]) / max_distances[category]
+                distances_from_category = (robust_covariances[category].mahalanobis(features) - min_distances[category]) / max_distances[category]
 
                 # update the distances only for the predictions that match this label
                 # np.minimum returns the elementwise min (distances starts at infinity)
@@ -964,7 +938,7 @@ class NetflowExperiment(object):
                 
         return distances
 
-    def compute_mahalanobis_distance(self, layer, epoch = 'opt', stratify = 'target', attribution_method = '', balanced = False):
+    def compute_mahalanobis_distance(self, layer, epoch = 'opt', stratify = 'target', balanced = False):
         """
         Compute the Mahalanobis distance for the in-distribution and out-of-distribution
         test samples.
@@ -972,7 +946,6 @@ class NetflowExperiment(object):
         @param layer: the extracted layer to read 
         @param epoch: the epoch to run the experiment on (default = 'opt')
         @param stratify: the column to compute covariance matrices (default = 'target')
-        @param attribution_method: include feature attributes (default = '', i.e., None)
         @param balanced: only use balanced benign data (default = False)
         """
         # only consider experiments with OOD examples 
@@ -980,32 +953,23 @@ class NetflowExperiment(object):
 
         # start timing statistics 
         start_time = time.time()
-
         ID_features = self.read_features('ID', layer, 'test', epoch, balanced)
         OOD_features = self.read_features('OOD', layer, 'test', epoch, balanced)
 
         ID_predictions = self.read_predictions('ID', 'test', epoch, balanced)
         OOD_predictions = self.read_predictions('OOD', 'test', epoch, balanced)
-
-        if len(attribution_method):
-            ID_attributions = self.read_feature_attributions('ID', attribution_method, layer, 'test', epoch)
-            OOD_attributions = self.read_feature_attributions('OOD', attribution_method, layer, 'test', epoch)
-            # add underscore to follow correct naming conventions
-            attribution_method = '_{}'.format(attribution_method)
-        else:
-            ID_attributions = None 
-            OOD_attributions = None
-
-        ID_mahalanobis = self.mahalanobis_distance(ID_predictions, ID_features, layer, epoch, stratify, ID_attributions, attribution_method)
-        OOD_mahalanobis = self.mahalanobis_distance(OOD_predictions, OOD_features, layer, epoch, stratify, OOD_attributions, attribution_method)
-
+        
+        ID_mahalanobis = self.mahalanobis_distance(ID_predictions, ID_features, layer, epoch, stratify)
+        OOD_mahalanobis = self.mahalanobis_distance(OOD_predictions, OOD_features, layer, epoch, stratify)
+        
         # save the distances 
         if not balanced:
-            ID_filename = '{}/ID_test-mahalanobis{}_{}_{}_unbalanced-{}.npy'.format(self.temp_directory, attribution_method, stratify, layer, epoch)
-            OOD_filename = '{}/OOD_test-mahalanobis{}_{}_{}_unbalanced-{}.npy'.format(self.temp_directory, attribution_method, stratify, layer, epoch)
+            ID_filename = '{}/ID_test-mahalanobis_{}_{}_unbalanced-{}.npy'.format(self.temp_directory, stratify, layer, epoch)
+            OOD_filename = '{}/OOD_test-mahalanobis_{}_{}_unbalanced-{}.npy'.format(self.temp_directory, stratify, layer, epoch)
         else:
-            ID_filename = '{}/ID_test-mahalanobis{}_{}_{}-{}.npy'.format(self.temp_directory, attribution_method, stratify, layer, epoch)
-            OOD_filename = '{}/OOD_test-mahalanobis{}_{}_{}-{}.npy'.format(self.temp_directory, attribution_method, stratify, layer, epoch)
+            ID_filename = '{}/ID_test-mahalanobis_{}_{}-{}.npy'.format(self.temp_directory, stratify, layer, epoch)
+            OOD_filename = '{}/OOD_test-mahalanobis_{}_{}-{}.npy'.format(self.temp_directory, stratify, layer, epoch)
+        
         np.save(ID_filename, ID_mahalanobis)
         np.save(OOD_filename, OOD_mahalanobis)
 
@@ -1031,11 +995,11 @@ class NetflowExperiment(object):
         true_positive_rate_85 = true_positives / OOD_mahalanobis.size
 
         if not balanced:
-            timing_filename = '{}/mahalanobis{}_{}_{}_unbalanced-{}.txt'.format(self.timing_directory, attribution_method, stratify, layer, epoch)
-            output_filename = '{}/mahalanobis{}_{}_{}_unbalanced-{}.txt'.format(self.results_directory, attribution_method, stratify, layer, epoch)
+            timing_filename = '{}/mahalanobis_{}_{}_unbalanced-{}.txt'.format(self.timing_directory, stratify, layer, epoch)
+            output_filename = '{}/mahalanobis_{}_{}_unbalanced-{}.txt'.format(self.results_directory, stratify, layer, epoch)
         else:
-            timing_filename = '{}/mahalanobis{}_{}_{}-{}.txt'.format(self.timing_directory, attribution_method, stratify, layer, epoch)
-            output_filename = '{}/mahalanobis{}_{}_{}-{}.txt'.format(self.results_directory, attribution_method, stratify, layer, epoch)
+            timing_filename = '{}/mahalanobis_{}_{}-{}.txt'.format(self.timing_directory, stratify, layer, epoch)
+            output_filename = '{}/mahalanobis_{}_{}-{}.txt'.format(self.results_directory, stratify, layer, epoch)
         
         # output the timing results
         with open(timing_filename, 'w') as fd:
@@ -1049,14 +1013,13 @@ class NetflowExperiment(object):
             fd.write('TPR (TNR = 85%): {:0.8f}%\n'.format(100 * true_positive_rate_85))
             fd.write('AUC: {:0.8f}\n'.format(roc_auc_score)) 
 
-    def train_normalizing_flows(self, layer, stratify = 'packet_category', epoch = 'opt', attribution_method = '', nblocks = 20, affine_clamping = 2.0):
+    def train_normalizing_flows(self, layer, stratify = 'packet_category', epoch = 'opt', nblocks = 20, affine_clamping = 2.0):
         """
         Train a normalizing flow for each class (benign/attack).
 
         @param layer: the extracted layer to read 
         @param stratify: the column to stratify training and validation (default = 'packet_category')
         @param epoch: the epoch to run the experiment on (default = 'opt')
-        @param attribution_method: include feature attributes (default = '', i.e., None)
         @param nblocks: the number of blocks in the flow (default = 20)
         @param affine_clamping: the clamping parameter (default = 2.0)
         """
@@ -1065,12 +1028,6 @@ class NetflowExperiment(object):
         
         # get the training features from disk
         features = self.read_features('ID', layer, 'train', epoch)
-
-        # read attribution if requested 
-        if len(attribution_method):
-            attributions = self.read_feature_attributions('ID', attribution_method, layer, 'train', epoch)
-            # add underscore to follow correct naming conventions
-            attribution_method = '_{}'.format(attribution_method)
 
         # hardcoded legend for this batch of features
         legend = {
@@ -1087,22 +1044,13 @@ class NetflowExperiment(object):
             label_features = features[X_train['target'] == label]
             label_categories = X_train.loc[X_train['target'] == label, stratify]
 
-            # if attribution is requested multiply the label_features by the relevant attribute values 
-            if len(attribution_method):
-                # get the attributions corresponding to this category and only select the rows where the training
-                # target equals the category in question. Perform element-wise multiplication
-                label_features = self.apply_feature_attributions(
-                    label_features,
-                    attributions[X_train['target'] == label],
-                )
-
             # get the suffix (used for ablation studies)
             if nblocks == 20 and abs(affine_clamping - 2.0) < 1e-6: suffix = ''
             else: suffix = '-nblocks-{:03d}-affine_clamping-{:03d}'.format(nblocks, int(10 * affine_clamping))
 
             # save the model to disk after training
-            model_filename = '{}/normalizing_flows{}_{}-{}-{}{}'.format(self.model_directory, attribution_method, layer, label, epoch, suffix)
-            loss_filename = '{}/normalizing_flows{}_{}-{}{}.png'.format(self.figures_directory, attribution_method, layer, epoch, suffix)
+            model_filename = '{}/normalizing_flows_{}-{}-{}{}'.format(self.model_directory, layer, label, epoch, suffix)
+            loss_filename = '{}/normalizing_flows_{}-{}{}.png'.format(self.figures_directory, layer, epoch, suffix)
 
             # make sure to not overwrite an existing model
             if os.path.exists(model_filename): continue
@@ -1122,7 +1070,7 @@ class NetflowExperiment(object):
         # close the figures so that any future runs will not append to the same canvas 
         plt.close()
 
-    def normalizing_flow(self, predictions, features, layer, epoch = 'opt', attributions = None, attribution_method = '', nblocks = 20, affine_clamping = 2.0):
+    def normalizing_flow(self, predictions, features, layer, epoch = 'opt', nblocks = 20, affine_clamping = 2.0):
         """
         Load a normalizing flow model and calculate probabilities for this sample.
 
@@ -1130,16 +1078,11 @@ class NetflowExperiment(object):
         @param features: the features extracted from an intermediate layer
         @param layer: the extracted layer to read 
         @param epoch: the epoch to run the experiment on (default = 'opt')    
-        @param attributions: the extracted feature attributions from an intermediate layer (default = None)
-        @param attribution_method: include feature attributes (default = '', i.e., None)
         @param nblocks: the number of blocks in the flow (default = 20)
         @param affine_clamping: the clamping parameter (default = 2.0)
         """
         # read the training dataset to get the target labels
         X_train = self.read_examples(self.ID_examples, 'train')
-
-        # set the attribution boolean based on the input
-        attribution = (attributions is not None)
 
         # create a zero vector for the log probailities 
         log_probabilities = np.zeros(features.shape[0], dtype = np.float32)
@@ -1151,30 +1094,24 @@ class NetflowExperiment(object):
             else: suffix = '-nblocks-{:03d}-affine_clamping-{:03d}'.format(nblocks, int(10 * affine_clamping))
 
             # load the model to disk from training
-            model_filename = '{}/normalizing_flows{}_{}-{}-{}{}'.format(self.model_directory, attribution_method, layer, label, epoch, suffix)
-            
-            # get the attributions corresponding to this category and only select the rows where the training
-            # target equals the category in question. Perform element-wise multiplication
-            if attribution: category_features = self.apply_feature_attributions(features, attributions)
-            else: category_features = features
+            model_filename = '{}/normalizing_flows_{}-{}-{}{}'.format(self.model_directory, layer, label, epoch, suffix)
 
             # create and load model weights for normalizing flows
-            flow = InverseAutoregressiveFlow(category_features.shape[1], gpu = self.gpu, nblocks = nblocks, affine_clamping = affine_clamping)
+            flow = InverseAutoregressiveFlow(features.shape[1], gpu = self.gpu, nblocks = nblocks, affine_clamping = affine_clamping)
             flow.load_weights(model_filename)
 
-            log_probabilities_from_label = flow.inverse(category_features)
+            log_probabilities_from_label = flow.inverse(features)
 
             log_probabilities[predictions == label] = log_probabilities_from_label[predictions == label]
 
         return log_probabilities
 
-    def calculate_normalizing_flows(self, layer, epoch = 'opt', attribution_method = '', balanced = False, nblocks = 20, affine_clamping = 2.0):
+    def calculate_normalizing_flows(self, layer, epoch = 'opt', balanced = False, nblocks = 20, affine_clamping = 2.0):
         """
         Run the inverse normalizing flow for all test features to find OOD inputs.
 
         @param layer: the extracted layer to read 
         @param epoch: the epoch to run the experiment on (default = 'opt')
-        @param attribution_method: include feature attributes (default = '', i.e., None)
         @param balanced: only use balanced benign data (default = False)
         @param nblocks: the number of blocks in the flow (default = 20)
         @param affine_clamping: the clamping parameter (default = 2.0)
@@ -1191,31 +1128,21 @@ class NetflowExperiment(object):
         ID_predictions = self.read_predictions('ID', 'test', epoch, balanced)
         OOD_predictions = self.read_predictions('OOD', 'test', epoch, balanced)
 
-        # read attribution if requested 
-        if len(attribution_method):
-            ID_attributions = self.read_feature_attributions('ID', attribution_method, layer, 'test', epoch)
-            OOD_attributions = self.read_feature_attributions('OOD', attribution_method, layer, 'test', epoch)
-            # add underscore to follow correct naming conventions
-            attribution_method = '_{}'.format(attribution_method)
-        else:
-            ID_attributions = None 
-            OOD_attributions = None
-
         # get the suffix (used for ablation studies)
         if nblocks == 20 and abs(affine_clamping - 2.0) < 1e-6: suffix = ''
         else: suffix = '-nblocks-{:03d}-affine_clamping-{:03d}'.format(nblocks, int(10 * affine_clamping))
 
         if not balanced:
-            ID_filename = '{}/ID_test-normalizing_flows{}_{}_unbalanced-{}{}.npy'.format(self.temp_directory, attribution_method, layer, epoch, suffix)
-            OOD_filename = '{}/OOD_test-normalizing_flows{}_{}_unbalanced-{}{}.npy'.format(self.temp_directory, attribution_method, layer, epoch, suffix)
+            ID_filename = '{}/ID_test-normalizing_flows_{}_unbalanced-{}{}.npy'.format(self.temp_directory, layer, epoch, suffix)
+            OOD_filename = '{}/OOD_test-normalizing_flows_{}_unbalanced-{}{}.npy'.format(self.temp_directory, layer, epoch, suffix)
         else:
-            ID_filename = '{}/ID_test-normalizing_flows{}_{}-{}{}.npy'.format(self.temp_directory, attribution_method, layer, epoch, suffix)
-            OOD_filename = '{}/OOD_test-normalizing_flows{}_{}-{}{}.npy'.format(self.temp_directory, attribution_method, layer, epoch, suffix)    
+            ID_filename = '{}/ID_test-normalizing_flows_{}-{}{}.npy'.format(self.temp_directory, layer, epoch, suffix)
+            OOD_filename = '{}/OOD_test-normalizing_flows_{}-{}{}.npy'.format(self.temp_directory, layer, epoch, suffix)    
         
         if not os.path.exists(OOD_filename):
             # get the losses for ID and OOD
-            ID_losses = self.normalizing_flow(ID_predictions, ID_features, layer, epoch, ID_attributions, attribution_method, nblocks, affine_clamping)
-            OOD_losses = self.normalizing_flow(OOD_predictions, OOD_features, layer, epoch, OOD_attributions, attribution_method, nblocks, affine_clamping)
+            ID_losses = self.normalizing_flow(ID_predictions, ID_features, layer, epoch, nblocks, affine_clamping)
+            OOD_losses = self.normalizing_flow(OOD_predictions, OOD_features, layer, epoch, nblocks, affine_clamping)
 
             # save the distances 
             np.save(ID_filename, ID_losses)   
@@ -1249,11 +1176,11 @@ class NetflowExperiment(object):
         true_positive_rate_85 = true_positives / OOD_losses.size
 
         if not balanced:
-            timing_filename = '{}/normalizing_flows{}_{}_unbalanced-{}{}.txt'.format(self.timing_directory, attribution_method, layer, epoch, suffix)
-            output_filename = '{}/normalizing_flows{}_{}_unbalanced-{}{}.txt'.format(self.results_directory, attribution_method, layer, epoch, suffix)
+            timing_filename = '{}/normalizing_flows_{}_unbalanced-{}{}.txt'.format(self.timing_directory, layer, epoch, suffix)
+            output_filename = '{}/normalizing_flows_{}_unbalanced-{}{}.txt'.format(self.results_directory, layer, epoch, suffix)
         else:
-            timing_filename = '{}/normalizing_flows{}_{}-{}{}.txt'.format(self.timing_directory, attribution_method, layer, epoch, suffix)
-            output_filename = '{}/normalizing_flows{}_{}-{}{}.txt'.format(self.results_directory, attribution_method, layer, epoch, suffix)
+            timing_filename = '{}/normalizing_flows_{}-{}{}.txt'.format(self.timing_directory, layer, epoch, suffix)
+            output_filename = '{}/normalizing_flows_{}-{}{}.txt'.format(self.results_directory, layer, epoch, suffix)
             
         # output the timing results
         with open(timing_filename, 'w') as fd:
