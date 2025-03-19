@@ -271,7 +271,7 @@ def read_pcap_data(pcap_file, flow_labels):
     packets = []
     
     # read this PCAP file and return the TCP/UDP packets
-    with open(pcap_file.filename, 'rb') as pcap_fd:
+    with open(os.path.expanduser(pcap_file.filename), 'rb') as pcap_fd:
         pcap_start_time = time.time()
         sys.stdout.write('Reading PCAP file {}...'.format(pcap_file.filename))
         # read either PCAP or PCAP next generation formats
