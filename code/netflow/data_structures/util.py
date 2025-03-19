@@ -1,3 +1,6 @@
+import os 
+
+
 def parse_values(lines):
     """
     Helper function that reads variable number of lines from a meta file.
@@ -32,7 +35,7 @@ def parse_meta_file(meta_filename):
     attributes = {}
     
     # open the meta file and read keys and values from dictionary 
-    with open(meta_filename, 'r') as fd:
+    with open(os.path.expanduser(meta_filename), 'r') as fd:
         # remove all new line characters 
         lines = [line.strip() for line in fd.readlines()]
 

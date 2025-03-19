@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
 # create a better style for matplotlib 
-plt.style.use('seaborn-dark')
+plt.style.use('seaborn-v0_8-dark')
 
 
 
@@ -25,7 +25,7 @@ class NetworkModel(object):
                 output_shape, 
                 network,
                 dataset,
-                gpu = 4):
+                gpu = 0):
         """
         Constructor for the Network Traffic Model class. 
 
@@ -34,7 +34,7 @@ class NetworkModel(object):
         @param output_shape: the number of layers in the output 
         @param network: a class corresponding to the neural network architecture 
         @param dataset: the torch dataset to use 
-        @param gpu: the gpu to use for training/inference (default = 4)
+        @param gpu: the gpu to use for training/inference (default = 0)
         """
         # set the input shape instance variable
         self.header_length = header_length

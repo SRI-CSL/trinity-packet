@@ -60,12 +60,12 @@ def subnet_fc(dims_in, dims_out):
     )
 
 class InverseAutoregressiveFlow(object):
-    def __init__(self, input_shape, gpu = 4, nblocks = 20, affine_clamping = 2.0):
+    def __init__(self, input_shape, gpu = 0, nblocks = 20, affine_clamping = 2.0):
         """
         Initialize an Inverse Autoregressive flow for the model safeguard.
 
         @param input_shape: the dimensionality of the feature vector 
-        @parma gpu: the gpu to run the experiment on (default = 4)
+        @parma gpu: the gpu to run the experiment on (default = 0)
         @param nblocks: the number of blocks in the flow (default = 20)
         @param affine_clamping: the clamping parameter (default = 2.0)
         """

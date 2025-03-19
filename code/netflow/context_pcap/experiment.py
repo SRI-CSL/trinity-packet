@@ -8,7 +8,7 @@ from netflow.data_structures.network_model import NetworkModel
 
 
 class ContextPCAPExperiment(NetflowExperiment):   
-    def __init__(self, filename, split_index, gpu = 4):
+    def __init__(self, filename, split_index, gpu = 0):
         """
         Constructor for the experiment class. This class serves as a wrapper
         for various file locations and attributes associated with a PCAP 
@@ -16,7 +16,7 @@ class ContextPCAPExperiment(NetflowExperiment):
 
         @param filename: location of the meta file that contains relevant info
         @param split_index: which train/test split to read
-        @param gpu: the gpu to run the experiment on (default = 4)
+        @param gpu: the gpu to run the experiment on (default = 0)
         """
         super(ContextPCAPExperiment, self).__init__(filename, split_index, gpu)
 
