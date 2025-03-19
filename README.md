@@ -4,6 +4,14 @@ Machine learning models are increasingly adopted to monitor network traffic and 
 
 ### Installation
 
+The Jupyter notebooks and configuration files assume installing ```trinity-packet``` in the home directory. Update the configuration files and notebooks if that is not the case.
+
+```
+git clone https://github.com/SRI-CSL/trinity-packet.git
+conda env create -f environment.yml 
+conda activate trinity_packet_env
+```
+
 ### Data
 
 ```data/README.md``` provides information for downloading the datasets used in our SAFE-NID paper. We host the data on zenodo and it includes the labeled payloads. The notebook ```notebooks/data_processing.ipynb``` contains the code to generate training and testing splits. In our paper, we generate ten training and testing splits for each dataset. Note, each training and testing split creates a large number of auxillary files in a ```temp``` directory (created from where the ```cwd```). For CIC-IDS-2017, each split creates ~90GB of extra files.
