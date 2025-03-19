@@ -1,0 +1,28 @@
+# prefix
+OOD-Infiltration-model-ContextTransformer-header_context
+# ID examples
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data Benign
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data Bot
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data DDoS
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data DoSGoldenEye
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data DoSHulk
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data DoSSlowhttptest
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data DoSSlowloris
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data FTP-Patator
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data Heartbleed
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data PortScan
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data SSH-Patator
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data WebAttack-BruteForce
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data WebAttack-SQLInjection
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data WebAttack-XSS
+# OOD examples
+~/trinity-packet/SAFE-NID/configs/datasets/cic-ids-2017.data Infiltration
+# network architecture
+ContextTransformer
+# payload
+1500
+# target
+packet_label
+# nepochs
+6
+# header context
