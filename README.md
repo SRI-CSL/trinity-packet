@@ -32,8 +32,8 @@ The experiment config file contains information regarding an OOD experiment.
 | Header | Explanation |
 | --- | --- |
 | prefix | Name to refer to experiment by (should match base name of file) |
-| ID examples | The in-distribution samples used for training. The first ``word'' is the dataset config location and the second is the packet category (e.g., Benign or DDoS). |
-| OOD examples | The out-of-distribution samples added during inference. The first ``word'' is the dataset config location and the second is the packet category (e.g., FTP-Patator or Infiltration). |
+| ID examples | The in-distribution samples used for training. The first "word" is the dataset config location and the second is the packet category (e.g., Benign or DDoS). |
+| OOD examples | The out-of-distribution samples added during inference. The first "word" is the dataset config location and the second is the packet category (e.g., FTP-Patator or Infiltration). |
 | network architecture | The type of neural network to use. Provided networks are ```ContextFNNBatchNormDropout```, ```ContextCNNBatchNormDropout```, and ```ContextTransformer```. |
 | payload | The length of the payload in bytes (paper uses 1500). Payloads are truncated beyond this value. |
 | target | The target of the discriminative classifier. For ```packet_label```, the NN will predict benign/attack for packets. For ```category_label```, the NN will predict with attack granularity. |

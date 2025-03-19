@@ -4,7 +4,7 @@ You can access the processed data at [https://zenodo.org/records/15046995](https
 
 ## Data Manipulation
 
-Consult the Jupyter notebook for converting the processed data into a set of training and testing splits. The data is saved in a ``temp'' folder. Note, each training and testing split will produce a large number of files (~90GB for CIC).
+Consult the Jupyter notebook for converting the processed data into a set of training and testing splits. The data is saved in a "temp" folder. Note, each training and testing split will produce a large number of files (~90GB for CIC).
 
 ## Code
 
